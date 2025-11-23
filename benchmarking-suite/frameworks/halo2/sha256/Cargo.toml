@@ -1,0 +1,11 @@
+[package]
+name = "sha256"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand_core = "0.6"
+sha2 = "0.10"
+
+halo2_proofs = { path = "../halo2/halo2_proofs" }
+halo2_gadgets = { path = "../halo2/halo2_gadgets", features = ["unstable-sha256-gadget"] }
