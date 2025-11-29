@@ -10,20 +10,6 @@ bincode = "1.3"
 
 halo2_proofs = { path = "../halo2/halo2_proofs" }
 halo2_gadgets = { path = "../halo2/halo2_gadgets", features = ["unstable-sha256-gadget"] }
+hex = "0.4.3"
 
-[profile.release]
-opt-level = 3
-lto = true
-
-[[bin]]
-name = "setup"
-path = "src/setup.rs"
-
-[[bin]]
-name = "prove"
-path = "src/prove.rs"
-
-[[bin]]
-name = "verify"
-path = "src/verify.rs"
 

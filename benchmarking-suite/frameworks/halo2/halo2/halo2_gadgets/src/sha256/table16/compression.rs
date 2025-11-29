@@ -423,7 +423,7 @@ pub enum StateWord {
     B(RoundWord),
     C(RoundWord),
     D(RoundWordDense),
-    E(RoundWordE),
+    E(RoundWordE), 
     F(RoundWord),
     G(RoundWord),
     H(RoundWordDense),

@@ -440,6 +440,7 @@ dependencies = [
  "bincode",
  "halo2_gadgets",
  "halo2_proofs",
+ "hex",
  "rand_core",
  "sha2",
 ]
