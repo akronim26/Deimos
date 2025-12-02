@@ -63,7 +63,7 @@ impl Circuit<Fp> for Sha256Circuit {
         Table16Chip::load(config.table.clone(), &mut layouter)?;
 
         let mut input_cells: Vec<AssignedCell<Fp, Fp>> = vec![];
-        
+
         layouter.assign_region(
             || "assign input",
             |mut region| {
@@ -71,7 +71,7 @@ impl Circuit<Fp> for Sha256Circuit {
                     let val = Value::known(Fp::from(*byte as u64));
                     let cell = region.assign_advice(
                         || format!("input_{i}"),
-                       config.input_advice,
+                        config.input_advice,
                         i,
                         || val,
                     )?;
@@ -103,11 +103,18 @@ impl Circuit<Fp> for Sha256Circuit {
         for block_idx in 0..num_blocks {
             let block_start = block_idx * 16;
             let block_words = &word_values[block_start..block_start + 16];
-            
-            let block_input: [BlockWord; 16] = std::array::from_fn(|i| {
-                BlockWord(Value::known(block_words[i]))
-            });
-            
+
+            let block_input: [BlockWord; 16] =
+                std::array::from_fn(|i| BlockWord(Value::known(block_words[i])));
+
+            // For subsequent blocks, we need to initialize the state from the previous block's output
+            if block_idx > 0 {
+                state = chip.initialization(
+                    &mut layouter.namespace(|| format!("init block {}", block_idx)),
+                    &state,
+                )?;
+            }
+
             state = chip.compress(
                 &mut layouter.namespace(|| format!("compress block {}", block_idx)),
                 &state,
@@ -138,7 +145,11 @@ impl Circuit<Fp> for Sha256Circuit {
 
         let digest_offset = self.input.len();
         for i in 0..8 {
-            layouter.constrain_instance(digest_cells[i].cell(), config.instance, digest_offset + i)?;
+            layouter.constrain_instance(
+                digest_cells[i].cell(),
+                config.instance,
+                digest_offset + i,
+            )?;
         }
 
         Ok(())
@@ -199,11 +210,11 @@ fn main() {
     println!("  Words: {:?}\n", digest_words);
 
     let mut instance_row: Vec<Fp> = Vec::new();
-    
+
     for byte in &message_bytes {
         instance_row.push(Fp::from(*byte as u64));
     }
-    
+
     for word in &digest_words {
         instance_row.push(Fp::from(*word as u64));
     }
@@ -234,23 +245,23 @@ fn main() {
     println!("✓ Proof created ({} bytes)\n", proof.len());
 
     std::fs::write("proof.bin", &proof).unwrap();
-    
+
     std::fs::write("input.txt", &message_bytes).unwrap();
-    
+
     let mut digest_bytes = Vec::new();
     for word in &digest_words {
         digest_bytes.extend_from_slice(&word.to_be_bytes());
     }
     std::fs::write("digest.bin", &digest_bytes).unwrap();
-    
+
     println!("✓ Saved proof.bin, input.txt, and digest.bin\n");
 
     println!("=== Verification ===\n");
-    
+
     let proof = std::fs::read("proof.bin").unwrap();
     let input_bytes = std::fs::read("input.txt").unwrap();
     let digest_bytes = std::fs::read("digest.bin").unwrap();
-    
+
     let mut digest_words_loaded = [0u32; 8];
     for i in 0..8 {
         let b = 4 * i;
