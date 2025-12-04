@@ -422,7 +422,7 @@ class _MainSelectionPageState extends State<MainSelectionPage> {
       case 'circom':
         return ['SHA256', 'Keccak256', 'Blake2s256', 'MiMC256', 'Pedersen', 'Poseidon'];
       case 'halo2':
-        return ['Fibonacci'];
+        return ['SHA256'];
       case 'noir':
         return ['SHA256', 'Keccak256', 'Poseidon', 'MiMC', 'Pedersen', 'blake2', 'blake3'];
       default:
@@ -1000,41 +1000,30 @@ class _ProofResultPageState extends State<ProofResultPage> {
   }
 
   Future<String> _generateHalo2Proof(MoproFlutter plugin) async {
-    // Validate and convert user input to Halo2 format
-    int? numericInput = int.tryParse(widget.customInput);
-    if (numericInput == null) {
-      throw Exception('Input for Halo2 Fibonacci circuit must be a numeric value');
-    }
-    final inputs = {
-      "out": [numericInput]
-    };
-    
-    // Start timing
-    final stopwatch = Stopwatch()..start();
-    
-    // Generate proof using actual MoPro
-    final proofResult = await plugin.generateHalo2Proof(
-      "assets/plonk_fibonacci_srs.bin",
-      "assets/plonk_fibonacci_pk.bin", 
-      inputs.cast<String, List<String>>()
-    );
-    
-    // Stop timing and store
-    stopwatch.stop();
-    
-    if (proofResult == null) {
-      throw Exception('Failed to generate Halo2 proof');
-    }
-    
-    // Store the proof result for verification
-    setState(() {
-      _halo2ProofResult = proofResult;
-      _proofGenerationTime = stopwatch.elapsed;
-    });
-    
-    // Format the actual proof data
-    return _formatHalo2ProofOutput(proofResult);
+  
+  final inputs = _stringToHalo2Input(widget.customInput);
+  
+  final stopwatch = Stopwatch()..start();
+  
+  final proofResult = await plugin.generateHalo2Proof(
+    "assets/halo2_sha256_params.bin",  
+    "assets/halo2_sha256_pk.bin",      
+    inputs.cast<String, List<String>>()
+  );
+  
+  stopwatch.stop();
+  
+  if (proofResult == null) {
+    throw Exception('Failed to generate Halo2 SHA-256 proof');
   }
+  
+  setState(() {
+    _halo2ProofResult = proofResult;
+    _proofGenerationTime = stopwatch.elapsed;
+  });
+  
+  return _formatHalo2ProofOutput(proofResult);
+}
 
   Future<String> _generateNoirProof(MoproFlutter plugin) async {
     // Convert custom input to Noir format (32-byte padded byte array)
@@ -1293,7 +1282,32 @@ Timestamp: ${DateTime.now().millisecondsSinceEpoch}
 ''';
   }
 
-
+String _formatHalo2ProofOutput(dynamic proofResult) {
+  final buffer = StringBuffer();
+  
+  buffer.writeln('=== Halo2 SHA-256 Proof Generated ===\n');
+  
+  buffer.writeln('Input: "${widget.customInput}"');
+  buffer.writeln('Input Length: ${widget.customInput.length} bytes');
+  
+  if (_proofGenerationTime != null) {
+    buffer.writeln('Proving Time: ${_proofGenerationTime!.inMilliseconds}ms');
+  }
+  
+  if (proofResult is Map && proofResult.containsKey('proof')) {
+    final proofData = proofResult['proof'];
+    if (proofData is String) {
+      buffer.writeln('Proof Size: ${proofData.length} bytes');
+    } else if (proofData is List) {
+      buffer.writeln('Proof Size: ${proofData.length} bytes');
+    }
+  }
+  
+  buffer.writeln('\n--- Proof Data ---');
+  buffer.writeln(proofResult.toString());
+  
+  return buffer.toString();
+}
 
 
 
@@ -1306,7 +1320,16 @@ Timestamp: ${DateTime.now().millisecondsSinceEpoch}
     }
     return '{"in": [${paddedBytes.map((b) => '"$b"').join(', ')}]}';
   }
-
+  
+Map<String, List<String>> _stringToHalo2Input(String input) {
+  final bytes = utf8.encode(input);
+  
+  final byteStrings = bytes.map((byte) => byte.toString()).toList();
+  
+    return {
+    "input": byteStrings
+  };
+}
 
   List<String> _textToNoirInput(String text) {
     // Convert text to 32-byte padded UTF-8 byte array for Noir

@@ -1,4 +1,5 @@
 use halo2_gadgets::sha256::{BlockWord, Sha256Instructions, Table16Chip, Table16Config};
+use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     pasta::{EqAffine, Fp},
@@ -6,7 +7,6 @@ use halo2_proofs::{
     poly::commitment::Params,
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
-use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
 use rand_core::OsRng;
 use sha2::{Digest, Sha256};
 use std::{
@@ -110,56 +110,37 @@ fn sha256_pad(msg: &[u8]) -> Vec<u8> {
 }
 
 fn main() {
-    println!("=== Halo2 SHA-256 Circuit Benchmark ===\n");
-
     let k = 17;
-    let params_path = "params.bin"; 
+    let params_path = "params.bin";
 
     let params = if needs_regeneration(params_path) {
-        println!("Generating parameters with k = {}...", k);
         let params = Params::<EqAffine>::new(k);
         let mut f = File::create(params_path).unwrap();
         params.write(&mut f).unwrap();
-        println!("✓ Generated params.bin (new or updated)\n");
         params
     } else {
-        println!("Loading existing params.bin...");
         let mut f = File::open(params_path).unwrap();
         let params = Params::<EqAffine>::read(&mut f).unwrap();
-        println!("✓ Loaded params.bin (up-to-date)\n");
         params
     };
 
-    let message = std::env::args().nth(1).unwrap_or("Is this for real".to_string());
-    println!("Input message: \"{}\"", message);
+    let message = std::env::args()
+        .nth(1)
+        .unwrap_or("Is this for real".to_string());
     let message_bytes = message.as_bytes().to_vec();
-    println!("Input length: {} bytes\n", message_bytes.len());
 
     let mut h = Sha256::new();
     h.update(&message_bytes);
     let digest = h.finalize();
 
-    println!("Expected SHA-256 hash:");
-    print!("  Hex: ");
-    for byte in digest.iter() {
-        print!("{:02x}", byte);
-    }
-    println!("\n");
-
     let circuit = Sha256Circuit {
         input: message_bytes.clone(),
     };
 
-    println!("Generating verification key...");
     let empty = Sha256Circuit { input: vec![] };
     let vk = keygen_vk(&params, &empty).unwrap();
-    println!("✓ Verification key generated");
-
-    println!("Generating proving key...");
     let pk = keygen_pk(&params, vk.clone(), &empty).unwrap();
-    println!("✓ Proving key generated\n");
 
-    println!("Creating proof...");
     let proving_start = Instant::now();
 
     let instances: &[&[&[Fp]]] = &[&[]];
@@ -168,20 +149,14 @@ fn main() {
     let proof = transcript.finalize();
 
     let proving_time = proving_start.elapsed();
-    println!("✓ Proof created ({} bytes)", proof.len());
-    println!("Proving time: {:.3?}\n", proving_time);
 
     std::fs::write("proof.bin", &proof).unwrap();
-    println!("✓ Saved proof.bin\n");
-
-    println!("=== Verification ===\n");
 
     let proof = std::fs::read("proof.bin").unwrap();
-    
-    println!("Verifying proof...");
+
     let empty = Sha256Circuit { input: vec![] };
     let vk = keygen_vk(&params, &empty).unwrap();
-    
+
     let instances: &[&[&[Fp]]] = &[&[]];
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
@@ -194,22 +169,4 @@ fn main() {
         instances,
         &mut transcript,
     );
-
-    let verification_time = verification_start.elapsed();
-    
-    match res {
-        Ok(_) => {
-            println!("✓ Verification PASSED - Proof is valid!");
-            println!("Verification time: {:.3?}\n", verification_time);
-        }
-        Err(e) => {
-            println!("✗ Verification FAILED: {:?}", e);
-        }
-    }
-    
-    println!("=== Benchmark Summary ===");
-    println!("Input size: {} bytes", message_bytes.len());
-    println!("Proof size: {} bytes", proof.len());
-    println!("Proving time: {:.3?}", proving_time);
-    println!("Verification time: {:.3?}", verification_time);
 }
