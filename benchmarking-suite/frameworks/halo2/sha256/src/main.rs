@@ -113,7 +113,7 @@ fn main() {
     println!("=== Halo2 SHA-256 Circuit Benchmark ===\n");
 
     let k = 17;
-    let params_path = "params.bin";
+    let params_path = "params.bin"; 
 
     let params = if needs_regeneration(params_path) {
         println!("Generating parameters with k = {}...", k);

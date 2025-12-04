@@ -165,7 +165,8 @@ pub fn best_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::Cu
                 });
             }
         });
-        results.iter().fold(C::Curve::identity(), |a, b| a + b)
+        let hello = results.iter().fold(C::Curve::identity(), |a, b| a + b);
+        hello
     } else {
         let mut acc = C::Curve::identity();
         multiexp_serial(coeffs, bases, &mut acc);

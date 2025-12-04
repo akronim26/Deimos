@@ -60,7 +60,7 @@ impl<'params, C: CurveAffine> VerificationStrategy<'params, C> for SingleVerifie
         } else {
             Err(Error::ConstraintSystemFailure)
         }
-    }
+    } 
 }
 
 /// Returns a boolean indicating whether or not the proof is valid
