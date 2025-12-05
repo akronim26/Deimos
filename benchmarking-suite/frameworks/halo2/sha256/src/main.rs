@@ -1,19 +1,14 @@
 use halo2_gadgets::sha256::{BlockWord, Sha256Instructions, Table16Chip, Table16Config};
-use halo2_proofs::plonk::{create_proof, keygen_pk, keygen_vk, verify_proof};
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     pasta::{EqAffine, Fp},
-    plonk::{Circuit, ConstraintSystem, Error},
+    plonk::{create_proof, keygen_pk, keygen_vk, verify_proof, Circuit, ConstraintSystem, Error},
     poly::commitment::Params,
     transcript::{Blake2bRead, Blake2bWrite, Challenge255},
 };
 use rand_core::OsRng;
 use sha2::{Digest, Sha256};
-use std::{
-    fs::File,
-    path::Path,
-    time::{Instant, SystemTime},
-};
+use std::{fs::File, path::Path, time::SystemTime};
 
 #[derive(Clone)]
 pub struct Sha256Config {
@@ -111,8 +106,8 @@ fn sha256_pad(msg: &[u8]) -> Vec<u8> {
 
 fn main() {
     let k = 17;
-    let params_path = "params.bin";
-
+    let params_path = "sha256_srs.bin";
+    
     let params = if needs_regeneration(params_path) {
         let params = Params::<EqAffine>::new(k);
         let mut f = File::create(params_path).unwrap();
@@ -124,14 +119,8 @@ fn main() {
         params
     };
 
-    let message = std::env::args()
-        .nth(1)
-        .unwrap_or("Is this for real".to_string());
+    let message = std::env::args().nth(1).unwrap_or("hello world".to_string());
     let message_bytes = message.as_bytes().to_vec();
-
-    let mut h = Sha256::new();
-    h.update(&message_bytes);
-    let digest = h.finalize();
 
     let circuit = Sha256Circuit {
         input: message_bytes.clone(),
@@ -141,28 +130,18 @@ fn main() {
     let vk = keygen_vk(&params, &empty).unwrap();
     let pk = keygen_pk(&params, vk.clone(), &empty).unwrap();
 
-    let proving_start = Instant::now();
-
     let instances: &[&[&[Fp]]] = &[&[]];
     let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
     create_proof(&params, &pk, &[circuit], instances, OsRng, &mut transcript).unwrap();
     let proof = transcript.finalize();
 
-    let proving_time = proving_start.elapsed();
+    std::fs::write("sha256_proof.bin", &proof).unwrap();
 
-    std::fs::write("proof.bin", &proof).unwrap();
-
-    let proof = std::fs::read("proof.bin").unwrap();
-
-    let empty = Sha256Circuit { input: vec![] };
-    let vk = keygen_vk(&params, &empty).unwrap();
-
+    let proof = std::fs::read("sha256_proof.bin").unwrap();
     let instances: &[&[&[Fp]]] = &[&[]];
     let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
 
-    let verification_start = Instant::now();
-
-    let res = verify_proof(
+    let _res = verify_proof(
         &params,
         &vk,
         halo2_proofs::plonk::SingleVerifier::new(&params),

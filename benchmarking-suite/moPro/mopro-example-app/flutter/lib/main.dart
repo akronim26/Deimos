@@ -1001,29 +1001,29 @@ class _ProofResultPageState extends State<ProofResultPage> {
 
   Future<String> _generateHalo2Proof(MoproFlutter plugin) async {
   
-  final inputs = _stringToHalo2Input(widget.customInput);
-  
-  final stopwatch = Stopwatch()..start();
-  
-  final proofResult = await plugin.generateHalo2Proof(
-    "assets/halo2_sha256_params.bin",  
-    "assets/halo2_sha256_pk.bin",      
-    inputs.cast<String, List<String>>()
-  );
-  
-  stopwatch.stop();
-  
-  if (proofResult == null) {
-    throw Exception('Failed to generate Halo2 SHA-256 proof');
+    final inputs = _stringToHalo2Input(widget.customInput);
+    
+    final stopwatch = Stopwatch()..start();
+    
+    final proofResult = await plugin.generateHalo2Proof(
+      "assets/sha256_params.bin",  
+      "assets/sha256_proof.bin",      
+      inputs.cast<String, List<String>>()
+    );
+    
+    stopwatch.stop();
+    
+    if (proofResult == null) {
+      throw Exception('Failed to generate Halo2 SHA-256 proof');
+    }
+    
+    setState(() {
+      _halo2ProofResult = proofResult;
+      _proofGenerationTime = stopwatch.elapsed;
+    });
+    
+    return _formatHalo2ProofOutput(proofResult);
   }
-  
-  setState(() {
-    _halo2ProofResult = proofResult;
-    _proofGenerationTime = stopwatch.elapsed;
-  });
-  
-  return _formatHalo2ProofOutput(proofResult);
-}
 
   Future<String> _generateNoirProof(MoproFlutter plugin) async {
     // Convert custom input to Noir format (32-byte padded byte array)
@@ -1282,35 +1282,6 @@ Timestamp: ${DateTime.now().millisecondsSinceEpoch}
 ''';
   }
 
-String _formatHalo2ProofOutput(dynamic proofResult) {
-  final buffer = StringBuffer();
-  
-  buffer.writeln('=== Halo2 SHA-256 Proof Generated ===\n');
-  
-  buffer.writeln('Input: "${widget.customInput}"');
-  buffer.writeln('Input Length: ${widget.customInput.length} bytes');
-  
-  if (_proofGenerationTime != null) {
-    buffer.writeln('Proving Time: ${_proofGenerationTime!.inMilliseconds}ms');
-  }
-  
-  if (proofResult is Map && proofResult.containsKey('proof')) {
-    final proofData = proofResult['proof'];
-    if (proofData is String) {
-      buffer.writeln('Proof Size: ${proofData.length} bytes');
-    } else if (proofData is List) {
-      buffer.writeln('Proof Size: ${proofData.length} bytes');
-    }
-  }
-  
-  buffer.writeln('\n--- Proof Data ---');
-  buffer.writeln(proofResult.toString());
-  
-  return buffer.toString();
-}
-
-
-
   String _textToByteArrayJson(String text) {
     // Convert text to 32-byte padded UTF-8 byte array for Circom
     final bytes = utf8.encode(text);
@@ -1408,8 +1379,8 @@ Map<String, List<String>> _stringToHalo2Input(String input) {
     final stopwatch = Stopwatch()..start();
     
     final result = await plugin.verifyHalo2Proof(
-      "assets/plonk_fibonacci_srs.bin",
-      "assets/plonk_fibonacci_vk.bin",
+      "assets/sha256_srs.bin",
+      "assets/sha256_proof.bin",
       _halo2ProofResult!.proof,
       _halo2ProofResult!.inputs
     );
